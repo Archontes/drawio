@@ -1,4 +1,51 @@
-08-Feb-2021: 14.3.0
+10-MAR-2021: 14.4.7
+
+- Adds upload option back in embed conf cloud
+
+09-MAR-2021: 14.4.6
+
+- Adds support for linkTarget property
+
+08-MAR-2021: 14.4.5
+
+- Changes find dialog to replace and find
+
+03-MAR-2021: 14.4.4
+
+- Improves Lucidchart import
+
+24-FEB-2021: 14.4.3
+
+- Adds notifications
+
+18-FEB-2021: 14.4.2
+
+- More fixes for aj.draw.io and ac.draw.io lightbox
+
+18-FEB-2021: 14.4.1
+
+- Fixes lightbox for aj.draw.io and ac.draw.io
+
+17-FEB-2021: 14.4.0
+
+- Removes VML support
+- Adds Persian language
+- Forces ac.draw.io and aj.draw.io to embed mode
+
+15-FEB-2021: 14.3.2
+
+- Adds flow animation style
+- Makes grid steps configurable
+- Adds ctrl+drop to insert dropped content as new page
+- Uses app.diagrams.net for editing [DID-1717]
+- Fixes drag and drop for SVG+XML files
+
+11-FEB-2021: 14.3.1
+
+- Adds support for regional direction to back-ends
+- Adds grid option to export dialog
+
+08-FEB-2021: 14.3.0
 
 - Fixes external fonts in PDF export
 - Fixes drag and drop for shapes with shadow

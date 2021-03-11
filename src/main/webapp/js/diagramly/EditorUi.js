@@ -27,7 +27,7 @@
 	/**
 	 * Switch to disable logging for mode and search terms.
 	 */
-	EditorUi.enableLogging = urlParams['stealth'] != '1' &&
+	EditorUi.enableLogging = urlParams['stealth'] != '1' && urlParams['lockdown'] != '1' &&
 		(/.*\.draw\.io$/.test(window.location.hostname) ||
 		/.*\.diagrams\.net$/.test(window.location.hostname)) &&
 		window.location.hostname != 'support.draw.io';
@@ -594,7 +594,7 @@
 	 */
 	EditorUi.prototype.isOffline = function(ignoreStealth)
 	{
-		return this.isOfflineApp() || !navigator.onLine || (!ignoreStealth && urlParams['stealth'] == '1');
+		return this.isOfflineApp() || !navigator.onLine || (!ignoreStealth && (urlParams['stealth'] == '1' || urlParams['lockdown'] == '1'));
 	};
 
 	/**
@@ -666,13 +666,6 @@
 					status.innerHTML = label;
 					container.appendChild(status);
 					spinner.status = status;
-					
-					// Centers the label in older IE versions
-					if (mxClient.IS_VML && (document.documentMode == null || document.documentMode <= 8))
-					{
-						status.style.left = Math.round(Math.max(0, x - status.offsetWidth / 2)) + 'px';
-						status.style.top = Math.round(Math.max(0, y + 70 - status.offsetHeight / 2)) + 'px';
-					}
 				}
 				
 				// Pause returns a function to resume the spinner
@@ -3116,13 +3109,8 @@
 	    buttons.style.position = 'absolute';
 	    buttons.style.right = '0px';
 	    buttons.style.top = '0px';
-	    buttons.style.padding = '8px'
-	    
-	    // Workaround for CSS error in IE8 (standards and quirks)
-	    if (!mxClient.IS_QUIRKS && document.documentMode != 8)
-	    {
-	    	buttons.style.backgroundColor = 'inherit';
-	    }
+	    buttons.style.padding = '8px'	    
+	    buttons.style.backgroundColor = 'inherit';
 	    
 	    title.style.position = 'relative';
 	    
@@ -3143,7 +3131,7 @@
 			
 			mxEvent.addListener(btn, 'click', mxUtils.bind(this, function(evt)
 			{
-				// Workaround for close after any button click in IE8/quirks
+				// Workaround for close after any button click in IE8
 				if (!mxEvent.isConsumed(evt))
 				{
 					var fn = mxUtils.bind(this, function()
@@ -3627,7 +3615,7 @@
 
     		if (typeof Toolbar !== 'undefined')
     		{
-    			Toolbar.prototype.unselectedBackground = (mxClient.IS_QUIRKS) ? 'none' : 'linear-gradient(rgb(255, 255, 255) 0px, rgb(242, 242, 242) 100%)';
+    			Toolbar.prototype.unselectedBackground = 'linear-gradient(rgb(255, 255, 255) 0px, rgb(242, 242, 242) 100%)';
     			Toolbar.prototype.selectedBackground = 'rgb(242, 242, 242)';
     		}
     		
@@ -4254,7 +4242,7 @@
 		return ((urlParams['save'] != 'remote' && (mxClient.IS_IE ||
 			(typeof window.Blob !== 'undefined' && typeof window.URL !== 'undefined')) &&
 			document.documentMode != 9 && document.documentMode != 8 &&
-			document.documentMode != 7 && !mxClient.IS_QUIRKS) ||
+			document.documentMode != 7) ||
 			this.isOfflineApp() || mxClient.IS_IOS);
 	};
 	
@@ -5165,7 +5153,7 @@
 		
 		if (lightbox)
 		{
-			if (urlParams['dev'] == '1')
+			if (EditorUi.lightboxHost != 'https://viewer.diagrams.net' || urlParams['dev'] == '1')
 			{
 				params.push('lightbox=1');
 			}
@@ -5630,7 +5618,7 @@
 		{
 			widthInput.focus();
 			
-			if (mxClient.IS_GC || mxClient.IS_FF || document.documentMode >= 5 || mxClient.IS_QUIRKS)
+			if (mxClient.IS_GC || mxClient.IS_FF || document.documentMode >= 5)
 			{
 				widthInput.select();
 			}
@@ -5921,7 +5909,7 @@
 		this.showDialog(dlg.container, 340, height, true, true, null, null, null, null, true);
 		zoomInput.focus();
 		
-		if (mxClient.IS_GC || mxClient.IS_FF || document.documentMode >= 5 || mxClient.IS_QUIRKS)
+		if (mxClient.IS_GC || mxClient.IS_FF || document.documentMode >= 5)
 		{
 			zoomInput.select();
 		}
@@ -6625,7 +6613,7 @@
 	/**
 	 * Imports the given XML into the existing diagram.
 	 */
-	EditorUi.prototype.importXml = function(xml, dx, dy, crop, noErrorHandling)
+	EditorUi.prototype.importXml = function(xml, dx, dy, crop, noErrorHandling, addNewPage)
 	{
 		dx = (dx != null) ? dx : 0;
 		dy = (dy != null) ? dy : 0;
@@ -6651,7 +6639,7 @@
 					{
 						var diagrams = node.getElementsByTagName('diagram');
 
-						if (diagrams.length == 1)
+						if (diagrams.length == 1 && !addNewPage)
 						{
 							node = Editor.parseDiagramNode(diagrams[0]);
 							
@@ -6674,7 +6662,7 @@
 								}
 							}
 						}
-						else if (diagrams.length > 1)
+						else if (diagrams.length > 0)
 						{
 							var pages = [];
 							var i0 = 0;
@@ -6915,7 +6903,7 @@
 						formData.append('file1', file, filename);
 	
 						var xhr = new XMLHttpRequest();
-						xhr.open('POST', VSD_CONVERT_URL);
+						xhr.open('POST', VSD_CONVERT_URL + (/(\.vss|\.vsx)$/.test(filename)? '?stencil=1' : ''));
 						xhr.responseType = 'blob';
 						this.addRemoteServiceSecurityCheck(xhr);
 						
@@ -7157,7 +7145,20 @@
 			
 			if (urlParams['dev'] == '1')
 			{
-				mxscript('js/diagramly/Extensions.js', delayed);
+				//Lucid org chart requires orgChart layout, in production, it is part of the extemsions.min.js
+				mxscript('js/diagramly/Extensions.js', function()
+				{
+					mxscript('js/orgchart/bridge.min.js', function()
+					{
+						mxscript('js/orgchart/bridge.collections.min.js', function()
+						{
+							mxscript('js/orgchart/OrgChart.Layout.min.js', function()
+							{
+								mxscript('js/orgchart/mxOrgChartLayout.js', delayed);											
+							});		
+						});	
+					});
+				});
 			}
 			else
 			{
@@ -7458,7 +7459,7 @@
 	 * Imports the given XML into the existing diagram.
 	 * TODO: Make this function asynchronous
 	 */
-	EditorUi.prototype.insertTextAt = function(text, dx, dy, html, asImage, crop, resizeImages)
+	EditorUi.prototype.insertTextAt = function(text, dx, dy, html, asImage, crop, resizeImages, addNewPage)
 	{
 		crop = (crop != null) ? crop : true;
 		resizeImages = (resizeImages != null) ? resizeImages : true;
@@ -7494,7 +7495,7 @@
 					
 					if (xml != null && xml.length > 0)
 					{
-						return this.importXml(xml, dx, dy, crop, true);
+						return this.importXml(xml, dx, dy, crop, true, addNewPage);
 					}
 	    		}
 				
@@ -7505,7 +7506,7 @@
 					
 					if (xml != null && xml.length > 0)
 					{
-						return this.importXml(xml, dx, dy, crop, true);
+						return this.importXml(xml, dx, dy, crop, true, addNewPage);
 					}
 				}
 				
@@ -7526,7 +7527,7 @@
 							xml = decodeURIComponent(text.substring(text.indexOf(',') + 1));
 						}
 						
-						var result = this.importXml(xml, dx, dy, crop, true); 
+						var result = this.importXml(xml, dx, dy, crop, true, addNewPage); 
 	
 						if (result.length > 0)
 						{
@@ -7589,7 +7590,7 @@
 			
 				if (this.isCompatibleString(text))
 				{
-					return this.importXml(text, dx, dy, crop);
+					return this.importXml(text, dx, dy, crop, null, addNewPage);
 				}
 				else if (text.length > 0)
 				{
@@ -7598,7 +7599,8 @@
 						this.convertLucidChart(text, mxUtils.bind(this, function(xml)
 						{
 							this.editor.graph.setSelectionCells(
-								this.importXml(xml, dx, dy, crop));
+								this.importXml(xml, dx, dy, crop,
+								null, addNewPage));
 						}), mxUtils.bind(this, function(e)
 						{
 							this.handleError(e);
@@ -7944,12 +7946,13 @@
 	/**
 	 * Imports the given XML into the existing diagram.
 	 */
-	EditorUi.prototype.importFile = function(data, mimeType, dx, dy, w, h, filename, done, file, crop, ignoreEmbeddedXml)
+	EditorUi.prototype.importFile = function(data, mimeType, dx, dy, w, h, filename,
+		done, file, crop, ignoreEmbeddedXml, evt)
 	{
 		crop = (crop != null) ? crop : true;
 		var async = false;
 		var cells = null;
-		
+
 		var handleResult = mxUtils.bind(this, function(xml)
 		{
 			var importedCells = null;
@@ -7960,7 +7963,10 @@
 			}
 			else
 			{
-				importedCells = this.importXml(xml, dx, dy, crop);
+				console.log('here', evt,mxEvent.isControlDown(evt));
+				
+				importedCells = this.importXml(xml, dx, dy, crop, null,
+					(evt != null) ? mxEvent.isControlDown(evt) : null);
 			}
 			
 			if (done != null)
@@ -7979,7 +7985,8 @@
 				
 				if (xml != null && xml.length > 0)
 				{
-					cells = this.importXml(xml, dx, dy, crop);
+					cells = this.importXml(xml, dx, dy, crop, null, (evt != null) ?
+						mxEvent.isControlDown(evt) : null);
 					containsModel = true;
 				}
 			}
@@ -8054,7 +8061,8 @@
 		}
 		else if (!/(\.v(sd|dx))($|\?)/i.test(filename) && !/(\.vs(s|x))($|\?)/i.test(filename))
 		{
-			cells = this.insertTextAt(this.validateFileData(data), dx, dy, true, null, crop);
+			cells = this.insertTextAt(this.validateFileData(data), dx, dy, true,
+				null, crop, null, (evt != null) ? mxEvent.isControlDown(evt) : null);
 		}
 		
 		if (!async && done != null)
@@ -8069,7 +8077,7 @@
 	 * 
 	 */
 	EditorUi.prototype.importFiles = function(files, x, y, maxSize, fn, resultFn, filterFn, barrierFn,
-		resizeDialog, maxBytes, resampleThreshold, ignoreEmbeddedXml)
+		resizeDialog, maxBytes, resampleThreshold, ignoreEmbeddedXml, evt)
 	{
 		maxSize = (maxSize != null) ? maxSize : this.maxImageSize;
 		maxBytes = (maxBytes != null) ? maxBytes : this.maxImageBytes;
@@ -8115,7 +8123,8 @@
 					}
 					else
 					{
-						return this.importFile(data, mimeType, x, y, w, h, filename, done, file, crop, ignoreEmbeddedXml);
+						return this.importFile(data, mimeType, x, y, w, h, filename,
+							done, file, crop, ignoreEmbeddedXml, evt);
 					}
 				}
 				catch (e)
@@ -9331,8 +9340,8 @@
 								y = null;
 							}
 							
-							this.importFiles(evt.dataTransfer.files, x, y, this.maxImageSize, null, null, null, null,
-								mxEvent.isControlDown(evt), null, null, mxEvent.isShiftDown(evt));
+							this.importFiles(evt.dataTransfer.files, x, y, this.maxImageSize, null, null, null,
+								null, mxEvent.isControlDown(evt), null, null, mxEvent.isShiftDown(evt), evt);
 				    	}
 		    		}
 				    else
@@ -9404,7 +9413,8 @@
 				    		
 				    		var doInsert = mxUtils.bind(this, function()
 				    		{
-				    			graph.setSelectionCells(this.insertTextAt(html, x, y, true, asImage, null, resizeImages));
+				    			graph.setSelectionCells(this.insertTextAt(html, x, y, true,
+				    				asImage, null, resizeImages, mxEvent.isControlDown(evt)));
 				    		});
 				    		
 				    		if (asImage && html != null && html.length > this.resampleThreshold)
@@ -9449,7 +9459,8 @@
 			    evt.preventDefault();
 			}), false);
 		}
-		
+
+		graph.enableFlowAnimation = true;
 		this.initPages();
 
 		// Embedded mode
@@ -9606,20 +9617,8 @@
 						graph.container.appendChild(textInput);
 						restoreFocus = true;
 						
-						// Workaround for selected document content in quirks mode
-						if (mxClient.IS_QUIRKS)
-						{
-							window.setTimeout(function()
-							{
-								textInput.focus();
-								document.execCommand('selectAll', false, null);
-							}, 0);
-						}
-						else
-						{
-							textInput.focus();
-							document.execCommand('selectAll', false, null);
-						}
+						textInput.focus();
+						document.execCommand('selectAll', false, null);
 					}
 				}
 			}
@@ -9913,7 +9912,7 @@
 			{
 				if (urlParams['search-shapes'] != null && this.sidebar.searchShapes != null)
 				{
-					this.sidebar.searchShapes(urlParams['search-shapes']);
+					this.sidebar.searchShapes(decodeURIComponent(urlParams['search-shapes']));
 					this.sidebar.showEntries('search');
 				}
 				else
@@ -12680,9 +12679,9 @@
 	/**
 	 * Overrides link dialog.
 	 */
-	EditorUi.prototype.showLinkDialog = function(value, btnLabel, fn)
+	EditorUi.prototype.showLinkDialog = function(value, btnLabel, fn, showNewWindowOption, linkTarget)
 	{
-		var dlg = new LinkDialog(this, value, btnLabel, fn, true);
+		var dlg = new LinkDialog(this, value, btnLabel, fn, true, showNewWindowOption, linkTarget);
 		this.showDialog(dlg.container, 560, 130, true, true);
 		dlg.init();
 	};
@@ -13012,7 +13011,7 @@
 		ExportDialog.showXmlOption = false;
 		ExportDialog.showGifOption = false;
 		
-		ExportDialog.exportFile = function(editorUi, name, format, bg, s, b, dpi)
+		ExportDialog.exportFile = function(editorUi, name, format, bg, s, b, dpi, grid)
 		{
 			var graph = editorUi.editor.graph;
 			
@@ -13042,17 +13041,26 @@
 						if (format == 'png')
 						{
 							editorUi.exportImage(s, bg == null || bg == 'none', true,
-						   		false, false, b, true, false, null, null, dpi);
+						   		false, false, b, true, false, null, grid, dpi);
 						}
 						else 
 						{
 							editorUi.exportImage(s, false, true,
-								false, false, b, true, false, 'jpeg');
+								false, false, b, true, false, 'jpeg', grid);
 						}
 					}
 					else 
 					{
 						var extras = {globalVars: graph.getExportVariables()};
+						
+						if (grid)
+						{
+							extras.grid = {
+								size: graph.gridSize,
+								steps: graph.view.gridSteps,
+								color: graph.view.gridColor
+							};
+						}
 						
 						editorUi.saveRequest(name, format,
 							function(newTitle, base64)
@@ -14153,18 +14161,8 @@ var CommentsWindow = function(editorUi, x, y, w, h, saveCallback)
 	ldiv.style.padding = (!EditorUi.compactUi) ? '1px' : '4px 0px 3px 0px';
 	ldiv.style.backgroundColor = (Dialog.backdropColor == 'white') ? 'whiteSmoke' : Dialog.backdropColor;
 	
-	if (mxClient.IS_QUIRKS)
-	{
-		ldiv.style.filter = 'none';
-	}
-	
 	var link = document.createElement('a');
 	link.className = 'geButton';
-	
-	if (mxClient.IS_QUIRKS)
-	{
-		link.style.filter = 'none';
-	}
 	
 	function updateNoComments()
 	{
@@ -14930,11 +14928,6 @@ var ConfirmDialog = function(editorUi, message, okFn, cancelFn, okLabel, cancelL
 	p2.style.overflow = 'auto';
 	p2.style.maxHeight = maxHeight + 'px';
 	p2.style.lineHeight = '1.2em';
-	
-	if (mxClient.IS_QUIRKS)
-	{
-		p2.style.height = '60px';
-	}
 	
 	mxUtils.write(p2, message);
 	div.appendChild(p2);

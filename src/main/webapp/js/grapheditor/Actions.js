@@ -65,7 +65,7 @@ Actions.prototype.init = function()
 	}).isEnabled = isGraphEnabled;
 	this.addAction('save', function() { ui.saveFile(false); }, null, null, Editor.ctrlKey + '+S').isEnabled = isGraphEnabled;
 	this.addAction('saveAs...', function() { ui.saveFile(true); }, null, null, Editor.ctrlKey + '+Shift+S').isEnabled = isGraphEnabled;
-	this.addAction('export...', function() { ui.showDialog(new ExportDialog(ui).container, 300, 296, true, true); });
+	this.addAction('export...', function() { ui.showDialog(new ExportDialog(ui).container, 300, 304, true, true); });
 	this.addAction('editDiagram...', function()
 	{
 		var dlg = new EditDiagramDialog(ui);
@@ -217,23 +217,7 @@ Actions.prototype.init = function()
 	}, null, null, 'Delete');
 	this.addAction('deleteAll', function()
 	{
-		if (!graph.isSelectionEmpty())
-		{
-			graph.getModel().beginUpdate();
-			try
-			{
-				var cells = graph.getSelectionCells();
-				
-				for (var i = 0; i < cells.length; i++)
-				{
-					graph.cellLabelChanged(cells[i], '');
-				}
-			}
-			finally
-			{
-				graph.getModel().endUpdate();
-			}
-		}
+		deleteCells(true);
 	});
 	this.addAction('deleteLabels', function()
 	{
@@ -454,11 +438,12 @@ Actions.prototype.init = function()
 			var cell = graph.getSelectionCell();
 			var value = graph.getLinkForCell(cell) || '';
 			
-			ui.showLinkDialog(value, mxResources.get('apply'), function(link)
+			ui.showLinkDialog(value, mxResources.get('apply'), function(link, docs, linkTarget)
 			{
 				link = mxUtils.trim(link);
     			graph.setLinkForCell(cell, (link.length > 0) ? link : null);
-			});
+				graph.setAttributeForCell(cell, 'linkTarget', linkTarget);
+			}, true, graph.getLinkTargetForCell(cell));
 		}
 	}, null, null, 'Alt+Shift+L');
 	this.put('insertImage', new Action(mxResources.get('image') + '...', function()
@@ -473,7 +458,7 @@ Actions.prototype.init = function()
 	{
 		if (graph.isEnabled() && !graph.isCellLocked(graph.getDefaultParent()))
 		{
-			ui.showLinkDialog('', mxResources.get('insert'), function(link, docs)
+			ui.showLinkDialog('', mxResources.get('insert'), function(link, docs, linkTarget)
 			{
 				link = mxUtils.trim(link);
 				
@@ -504,6 +489,7 @@ Actions.prototype.init = function()
 					linkCell.geometry.x = pt.x;
             	    linkCell.geometry.y = pt.y;
             	    
+					graph.setAttributeForCell(linkCell, 'linkTarget', linkTarget);
             	    graph.setLinkForCell(linkCell, link);
             	    graph.cellSizeUpdated(linkCell, true);
 
@@ -521,7 +507,7 @@ Actions.prototype.init = function()
             	    graph.setSelectionCell(linkCell);
             	    graph.scrollCellToVisible(graph.getSelectionCell());
 				}
-			});
+			}, true);
 		}
 	})).isEnabled = isGraphEnabled;
 	this.addAction('link...', mxUtils.bind(this, function()

@@ -766,10 +766,25 @@
 			{
 				this.findWindow.window.setVisible(!this.findWindow.window.isVisible());
 			}
-		}));
+		}), null, null, Editor.ctrlKey + '+F');
 		action.setToggleAction(true);
 		action.setSelectedCallback(mxUtils.bind(this, function() { return this.findWindow != null && this.findWindow.window.isVisible(); }));
 
+		action = editorUi.actions.addAction('replace...', mxUtils.bind(this, function()
+		{
+			if (this.replaceWindow == null)
+			{
+				this.replaceWindow = new FindWindow(editorUi, document.body.offsetWidth - 300, 110, 370, 205, true);
+				this.replaceWindow.window.setVisible(true);
+			}
+			else
+			{
+				this.replaceWindow.window.setVisible(!this.replaceWindow.window.isVisible());
+			}
+		}));
+		action.setToggleAction(true);
+		action.setSelectedCallback(mxUtils.bind(this, function() { return this.replaceWindow != null && this.replaceWindow.window.isVisible(); }));
+		
 		editorUi.actions.put('exportVsdx', new Action(mxResources.get('formatVsdx') + ' (beta)...', function()
 		{
 			editorUi.exportVisio();
@@ -789,8 +804,12 @@
 						try
 						{
 							localStorage.removeItem('.configuration');
-							localStorage.removeItem('.drawio-config');
-							localStorage.removeItem('.mode');
+							
+							if (mxEvent.isShiftDown(evt))
+							{
+								localStorage.removeItem('.drawio-config');
+								localStorage.removeItem('.mode');
+							}
 							
 							editorUi.hideDialog();
 							editorUi.alert(mxResources.get('restartForChangeRequired'));
@@ -950,33 +969,26 @@
 						{
 							elt.style.top = '0px';
 						}
+
+						var icon = document.createElement('div');
+						icon.style.backgroundImage = 'url(' + Editor.globeImage + ')';
+						icon.style.backgroundPosition = 'center center';
+						icon.style.backgroundRepeat = 'no-repeat';
+						icon.style.backgroundSize = '19px 19px';
+						icon.style.position = 'absolute';
+						icon.style.height = '19px';
+						icon.style.width = '19px';
+						icon.style.marginTop = '2px';
+						icon.style.zIndex = '1';
+						elt.appendChild(icon);
+						mxUtils.setOpacity(elt, 40);
 						
-						if (!mxClient.IS_VML)
+						if (uiTheme == 'atlas' || uiTheme == 'dark')
 						{
-							var icon = document.createElement('div');
-							icon.style.backgroundImage = 'url(' + Editor.globeImage + ')';
-							icon.style.backgroundPosition = 'center center';
-							icon.style.backgroundRepeat = 'no-repeat';
-							icon.style.backgroundSize = '19px 19px';
-							icon.style.position = 'absolute';
-							icon.style.height = '19px';
-							icon.style.width = '19px';
-							icon.style.marginTop = '2px';
-							icon.style.zIndex = '1';
-							elt.appendChild(icon);
-							mxUtils.setOpacity(elt, 40);
-							
-							if (uiTheme == 'atlas' || uiTheme == 'dark')
-							{
-								elt.style.opacity = '0.85';
-								elt.style.filter = 'invert(100%)';
-							}
+							elt.style.opacity = '0.85';
+							elt.style.filter = 'invert(100%)';
 						}
-						else
-						{
-							elt.innerHTML = '<div class="geIcon geSprite geSprite-globe"/>';
-						}
-						
+
 						document.body.appendChild(elt);
 					}
 				}
@@ -1072,7 +1084,16 @@
 							
 							if (urlParams['dev'] == '1')
 							{
-								mxscript('js/orgchart.min.js', delayed);
+								mxscript('js/orgchart/bridge.min.js', function()
+								{
+									mxscript('js/orgchart/bridge.collections.min.js', function()
+									{
+										mxscript('js/orgchart/OrgChart.Layout.min.js', function()
+										{
+											mxscript('js/orgchart/mxOrgChartLayout.js', delayed);											
+										});		
+									});	
+								});
 							}
 							else
 							{
@@ -3178,9 +3199,18 @@
 				this.addMenuItems(menu, ['copyAsImage']);
 			}
 			
-			this.addMenuItems(menu, ['paste', 'delete', '-', 'duplicate', '-', 'find', '-', 'editData', 'editTooltip', '-',
-				 'editStyle',  'editGeometry', '-', 'edit', '-', 'editLink', 'openLink', '-',
-                 'selectVertices', 'selectEdges', 'selectAll', 'selectNone', '-', 'lockUnlock']);
+			if (urlParams['replace'] == '1')
+			{
+				this.addMenuItems(menu, ['paste', 'delete', '-', 'duplicate', '-', 'find', 'replace', '-', 'editData', 'editTooltip', '-',
+					 'editStyle',  'editGeometry', '-', 'edit', '-', 'editLink', 'openLink', '-',
+	                 'selectVertices', 'selectEdges', 'selectAll', 'selectNone', '-', 'lockUnlock']);
+			}
+			else
+			{
+				this.addMenuItems(menu, ['paste', 'delete', '-', 'duplicate', '-', 'find', '-', 'editData', 'editTooltip', '-',
+					 'editStyle',  'editGeometry', '-', 'edit', '-', 'editLink', 'openLink', '-',
+	                 'selectVertices', 'selectEdges', 'selectAll', 'selectNone', '-', 'lockUnlock']);
+			}
 		})));
 
 		var action = editorUi.actions.addAction('comments', mxUtils.bind(this, function()
@@ -3491,7 +3521,7 @@
 					
 					if (editorUi.isOfflineApp())
 					{
-						if (navigator.onLine && urlParams['stealth'] != '1')
+						if (navigator.onLine && urlParams['stealth'] != '1' && urlParams['lockdown'] != '1')
 						{
 							this.addMenuItems(menu, ['upload'], parent);
 						}
